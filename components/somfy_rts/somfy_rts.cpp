@@ -4,6 +4,7 @@
 #include "esphome/core/hal.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <nvs.h>
 
 namespace esphome {
@@ -55,6 +56,7 @@ SomfyRTSCover::SomfyRTSCover(
     uint32_t remote_code
 )
     : hub_(hub), storage_name_(storage_name), storage_key_(storage_key), remote_code_(remote_code) {
+  snprintf(this->position_key_, sizeof(this->position_key_), "%sP", storage_key);
   this->storage_ =
       new NVSRollingCodeStorage(storage_name, storage_key);
 
@@ -67,6 +69,10 @@ SomfyRTSCover::SomfyRTSCover(
 }
 
 void SomfyRTSCover::setup() {
+  this->physical_position_ = this->invert_position_ ?
+      1.0f - this->default_position_ : this->default_position_;
+  if (this->save_position_)
+    this->load_position_();
   this->publish_position_();
 
   nvs_handle_t handle;
@@ -92,6 +98,34 @@ void SomfyRTSCover::setup() {
   }
 }
 
+bool SomfyRTSCover::load_position_() {
+  nvs_handle_t handle;
+  if (nvs_open(this->storage_name_, NVS_READONLY, &handle) != ESP_OK)
+    return false;
+  float saved_position = 0.0f;
+  size_t size = sizeof(saved_position);
+  esp_err_t err = nvs_get_blob(handle, this->position_key_, &saved_position, &size);
+  nvs_close(handle);
+  if (err != ESP_OK || saved_position < cover::COVER_CLOSED || saved_position > cover::COVER_OPEN)
+    return false;
+  this->physical_position_ = saved_position;
+  return true;
+}
+
+void SomfyRTSCover::persist_position_() {
+  if (!this->save_position_)
+    return;
+  nvs_handle_t handle;
+  if (nvs_open(this->storage_name_, NVS_READWRITE, &handle) != ESP_OK)
+    return;
+  const size_t size = sizeof(this->physical_position_);
+  nvs_set_blob(handle, this->position_key_, &this->physical_position_, size);
+  nvs_commit(handle);
+  nvs_close(handle);
+  this->position_save_pending_ = false;
+  ESP_LOGI(TAG, "Saved position %.0f%%", this->position * 100.0f);
+}
+
 cover::CoverTraits SomfyRTSCover::get_traits() {
   auto traits = cover::CoverTraits();
   traits.set_is_assumed_state(true);
@@ -105,6 +139,7 @@ void SomfyRTSCover::send_command_(Command command) {
   ESP_LOGI(TAG, "TX command %u remote 0x%06lX", static_cast<unsigned>(command),
            static_cast<unsigned long>(this->remote_code_));
   this->hub_->send_command(this->remote_, command);
+  this->update_rolling_code_sensor();
 }
 
 void SomfyRTSCover::control(const cover::CoverCall &call) {
@@ -130,6 +165,11 @@ void SomfyRTSCover::control(const cover::CoverCall &call) {
 }
 
 void SomfyRTSCover::loop() {
+  if (this->position_save_pending_ &&
+      millis() - this->position_save_started_ >= this->position_save_interval_) {
+    this->persist_position_();
+  }
+
   if (!this->moving_)
     return;
 
@@ -179,6 +219,10 @@ void SomfyRTSCover::start_motion_(float target, bool opening) {
 void SomfyRTSCover::stop_motion_(bool send_command) {
   this->update_position_();
   this->moving_ = false;
+  if (this->save_position_) {
+    this->position_save_pending_ = true;
+    this->position_save_started_ = millis();
+  }
   if (send_command)
     this->send_command_(Command::My);
   this->publish_position_();
@@ -188,6 +232,21 @@ void SomfyRTSCover::publish_position_() {
   this->position = this->invert_position_ ?
       1.0f - this->physical_position_ : this->physical_position_;
   this->publish_state();
+}
+
+void SomfyRTSCover::update_rolling_code_sensor() {
+  if (this->rolling_code_sensor_ == nullptr)
+    return;
+
+  nvs_handle_t handle;
+  uint16_t next_code = 1;
+  esp_err_t err = nvs_open(this->storage_name_, NVS_READONLY, &handle);
+  if (err == ESP_OK) {
+    err = nvs_get_u16(handle, this->storage_key_, &next_code);
+    nvs_close(handle);
+  }
+  const uint16_t current_code = (err == ESP_OK && next_code > 0) ? next_code - 1 : 0;
+  this->rolling_code_sensor_->publish_state(current_code);
 }
 
 void SomfyRTSCover::program() {
@@ -204,6 +263,11 @@ void SomfyRTSCover::send_my() {
 
 void SomfyRTSButton::press_action() {
   this->cover_->program();
+}
+
+void SomfyRTSRollingCodeSensor::setup() {
+  this->cover_->set_rolling_code_sensor(this);
+  this->cover_->update_rolling_code_sensor();
 }
 
 }  // namespace somfy_rts

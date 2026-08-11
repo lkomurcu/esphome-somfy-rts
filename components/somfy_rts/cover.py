@@ -15,6 +15,9 @@ CONF_OPEN_DURATION = "open_duration"
 CONF_CLOSE_DURATION = "close_duration"
 CONF_INVERT_POSITION = "invert_position"
 CONF_INVERT_DIRECTION = "invert_direction"
+CONF_DEFAULT_POSITION = "default_position"
+CONF_SAVE_POSITION = "save_position"
+CONF_POSITION_SAVE_INTERVAL = "position_save_interval"
 
 CONFIG_SCHEMA = cover.cover_schema(
     SomfyRTSCover,
@@ -27,6 +30,9 @@ CONFIG_SCHEMA = cover.cover_schema(
         cv.Required(CONF_STORAGE_KEY): cv.string_strict,
         cv.Optional(CONF_INVERT_POSITION, default=False): cv.boolean,
         cv.Optional(CONF_INVERT_DIRECTION, default=False): cv.boolean,
+        cv.Optional(CONF_DEFAULT_POSITION, default=1.0): cv.float_range(min=0.0, max=1.0),
+        cv.Optional(CONF_SAVE_POSITION, default=True): cv.boolean,
+        cv.Optional(CONF_POSITION_SAVE_INTERVAL, default="5min"): cv.time_period_microseconds,
         cv.Optional(CONF_OPEN_DURATION, default="30s"): cv.time_period_microseconds,
         cv.Optional(CONF_CLOSE_DURATION, default="30s"): cv.time_period_microseconds,
     }
@@ -47,3 +53,6 @@ async def to_code(config):
     cg.add(var.set_close_duration(config[CONF_CLOSE_DURATION]))
     cg.add(var.set_invert_position(config[CONF_INVERT_POSITION]))
     cg.add(var.set_invert_direction(config[CONF_INVERT_DIRECTION]))
+    cg.add(var.set_default_position(config[CONF_DEFAULT_POSITION]))
+    cg.add(var.set_save_position(config[CONF_SAVE_POSITION]))
+    cg.add(var.set_position_save_interval(config[CONF_POSITION_SAVE_INTERVAL]))
