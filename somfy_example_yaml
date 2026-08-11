@@ -31,6 +31,8 @@ cover:
     remote_code: 0xF41E4E
     storage_name: "somfy"
     storage_key: "Cover Front"
+    invert_position: true
+    invert_direction: false
     open_duration: 30s
     close_duration: 30s
 
@@ -41,21 +43,22 @@ cover:
     remote_code: 0x00F72A
     storage_name: "somfy"
     storage_key: "Cover Backyard"
+    invert_position: true
+    invert_direction: false
     open_duration: 30s
     close_duration: 30s
 
+    
 button:
-  - platform: template
+  - platform: somfy_rts
+    id: prog_front
     name: "PROG Front"
-    on_press:
-      - lambda: |-
-          id(somfy).program();
+    cover_id: somfy
 
-  - platform: template
+  - platform: somfy_rts
+    id: prog_backyard
     name: "PROG Backyard"
-    on_press:
-      - lambda: |-
-          id(somfy2).program();
+    cover_id: somfy2
 
   - platform: wifi_signal
     name: "WiFi Signal Sensor"

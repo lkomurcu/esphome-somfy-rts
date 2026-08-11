@@ -202,5 +202,9 @@ void SomfyRTSCover::send_my() {
   this->send_command_(Command::My);
 }
 
+void SomfyRTSButton::press_action() {
+  this->cover_->program();
+}
+
 }  // namespace somfy_rts
 }  // namespace esphome

@@ -2,6 +2,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/cover/cover.h"
+#include "esphome/components/button/button.h"
 
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <NVSRollingCodeStorage.h>
@@ -9,6 +10,8 @@
 
 namespace esphome {
 namespace somfy_rts {
+
+class SomfyRTSCover;
 
 class SomfyRTSHub : public Component {
  public:
@@ -74,6 +77,16 @@ class SomfyRTSCover : public cover::Cover, public Component {
   bool invert_position_{false};
   bool invert_direction_{false};
   float physical_position_{cover::COVER_CLOSED};
+};
+
+class SomfyRTSButton : public button::Button, public Component {
+ public:
+  explicit SomfyRTSButton(SomfyRTSCover *cover) : cover_(cover) {}
+
+ protected:
+  void press_action() override;
+
+  SomfyRTSCover *cover_;
 };
 
 }  // namespace somfy_rts
