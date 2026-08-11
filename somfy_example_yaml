@@ -1,0 +1,62 @@
+esphome:
+  name: dsmr
+  libraries:
+    - EEPROM
+    - SPI
+    - SmartRC-CC1101-Driver-Lib@2.5.6
+    - Somfy_Remote_Lib@0.4.1
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+external_components:
+  - source: github://lkomurcu/esphome-somfy-rts/@main
+    components:
+      - somfy_rts
+captive_portal:
+
+
+somfy_rts:
+  id: somfy_radio
+  frequency: 433.42
+  emitter_pin: 2
+
+cover:
+  - platform: somfy_rts
+    somfy_rts_id: somfy_radio
+    id: somfy
+    name: "Front External"
+    remote_code: 0xF41E4E
+    storage_name: "somfy"
+    storage_key: "Cover Front"
+    open_duration: 30s
+    close_duration: 30s
+
+  - platform: somfy_rts
+    somfy_rts_id: somfy_radio
+    id: somfy2
+    name: "Backyard External"
+    remote_code: 0x00F72A
+    storage_name: "somfy"
+    storage_key: "Cover Backyard"
+    open_duration: 30s
+    close_duration: 30s
+
+button:
+  - platform: template
+    name: "PROG Front"
+    on_press:
+      - lambda: |-
+          id(somfy).program();
+
+  - platform: template
+    name: "PROG Backyard"
+    on_press:
+      - lambda: |-
+          id(somfy2).program();
+
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    update_interval: 60s
